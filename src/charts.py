@@ -160,6 +160,64 @@ def usd_m2_chico_vs_grande(comparacion: pd.DataFrame, excluir: list[str] | None 
     return fig
 
 
+def usd_m2_por_superficie_chart(resumen: pd.DataFrame) -> plt.Figure:
+    """Barras de la mediana de USD/m² por rango de superficie.
+
+    `resumen` es la salida de `analysis.usd_m2_por_superficie`.
+    """
+    aplicar_estilo()
+    fig, ax = plt.subplots(figsize=(8, 5))
+    x = range(len(resumen))
+    valores = resumen["mediana_usd_m2"]
+    piso = valores.min()
+    colores = [AZUL if v > piso * 1.05 else AZUL_CLARO for v in valores]
+    ax.bar(x, valores, color=colores, width=0.65)
+    for i, v in enumerate(valores):
+        ax.text(i, v + 0.2, f"{v:.1f}".replace(".", ","), ha="center", va="bottom", fontsize=9, color=TEXTO)
+
+    ax.set_xticks(list(x), resumen.index)
+    ax.set_ylabel("Mediana de USD por m²")
+    ax.grid(axis="y", color=GRILLA, linewidth=0.8)
+    ax.set_axisbelow(True)
+    ax.tick_params(axis="x", length=0)
+    ax.set_title("El m² es más barato en departamentos de 30 a 100 m²")
+    agregar_nota(ax,
+                 "Mediana de alquiler mensual por m² según la superficie del departamento.\n"
+                 "Una publicación por departamento. Fuente: avisos sep-2024 a jul-2025.")
+    return fig
+
+
+def m2_con_presupuesto(resumen: pd.DataFrame, minimo: float, maximo: float) -> plt.Figure:
+    """Barras horizontales: m² que se consiguen en cada barrio con un presupuesto dado.
+
+    `resumen` es la salida de `analysis.m2_por_presupuesto`.
+    """
+    aplicar_estilo()
+    datos = resumen.sort_values("mediana_m2")
+    etiquetas = [f"{b}  ({n:,})".replace(",", ".") for b, n in zip(datos.index, datos["propiedades"])]
+    mediana = datos["mediana_m2"].median()
+
+    fig, ax = plt.subplots(figsize=(8, 8))
+    colores = [AZUL if v > mediana else AZUL_CLARO for v in datos["mediana_m2"]]
+    ax.barh(etiquetas, datos["mediana_m2"], color=colores, height=0.7)
+    for i, v in enumerate(datos["mediana_m2"]):
+        ax.text(v + 0.5, i, f"{v:.0f} m²", va="center", fontsize=9, color=TEXTO)
+
+    ax.set_xlabel("Mediana de superficie (m²)")
+    ax.grid(axis="x", color=GRILLA, linewidth=0.8)
+    ax.set_axisbelow(True)
+    ax.tick_params(axis="y", length=0)
+    ax.margins(y=0.01)
+    ax.set_xlim(right=datos["mediana_m2"].max() * 1.1)
+    rango = f"USD {minimo:,.0f} y {maximo:,.0f}".replace(",", ".")
+    ax.set_title(f"¿Cuántos m² conseguís pagando entre {rango} por mes?")
+    agregar_nota(ax,
+                 f"Departamentos con alquiler mensual entre {rango}. Entre paréntesis: cantidad de departamentos.\n"
+                 "Barrios con al menos 30 departamentos en ese rango. Una publicación por departamento.\n"
+                 "Precios en pesos convertidos a USD con dólar MEP del día. Fuente: avisos sep-2024 a jul-2025.")
+    return fig
+
+
 def agregar_nota(ax: plt.Axes, texto: str) -> None:
     """Nota metodológica debajo del eje x, alineada con el inicio del eje."""
     ax.annotate(texto, xy=(0, 0), xycoords="axes fraction", xytext=(0, -42),
