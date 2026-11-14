@@ -140,3 +140,87 @@ def usd_m2_por_ambientes_en_barrio(
     })[suficientes]
     comparacion["diferencia_%"] = (comparacion.iloc[:, 1] / comparacion.iloc[:, 0] - 1) * 100
     return comparacion.sort_values("diferencia_%").round(1)
+
+
+# --- Evolución temporal -------------------------------------------------------
+
+def una_por_periodo(df: pd.DataFrame) -> pd.DataFrame:
+    """Agrega `periodo` (año-mes del scraping) y deja una fila por `id` y período.
+
+    Los tres scrapings de septiembre de 2024 (23, 24 y 29) se tratan como un
+    único período; de cada aviso se conserva la publicación más reciente.
+    """
+    df = df.assign(periodo=df["fecha_scraping"].dt.strftime("%Y-%m"))
+    return df.sort_values("scrap_date").drop_duplicates(["id", "periodo"], keep="last").reset_index(drop=True)
+
+
+def variacion_composicion_fija(
+    df: pd.DataFrame, columna: str, base: str, comparar: str, min_propiedades: int = MIN_PROPIEDADES
+) -> dict:
+    """Variación % de la mediana de `columna` entre dos períodos, comparando cada barrio consigo mismo.
+
+    Evita que un cambio en la mezcla de barrios (por ejemplo, más avisos de
+    Puerto Madero en un período) se confunda con un cambio de precios. Se
+    calcula la mediana por barrio en cada período y se promedian los barrios
+    con los pesos (cantidad de avisos) del período base. Solo entran barrios
+    con al menos `min_propiedades` avisos en ambos períodos.
+    """
+    datos = df[df["periodo"].isin([base, comparar])]
+    tabla = datos.groupby(["barrio", "periodo"])[columna].agg(["median", "size"]).unstack("periodo")
+    tabla = tabla[(tabla["size"][[base, comparar]] >= min_propiedades).all(axis=1)]
+    pesos = tabla["size"][base]
+    valor_base = (tabla["median"][base] * pesos).sum() / pesos.sum()
+    valor_comparar = (tabla["median"][comparar] * pesos).sum() / pesos.sum()
+    return {
+        "variacion_%": round(float(valor_comparar / valor_base - 1) * 100, 1),
+        "barrios": len(tabla),
+        "avisos_base": int(pesos.sum()),
+    }
+
+
+def inflacion_acumulada(inflacion: pd.DataFrame, desde: str, hasta: str) -> float:
+    """Inflación acumulada en % de los meses `desde` a `hasta` (formato 'AAAA-MM', ambos incluidos)."""
+    mensual = inflacion.assign(mes=pd.to_datetime(inflacion["fecha"]).dt.strftime("%Y-%m")).set_index("mes")
+    tramo = mensual.loc[desde:hasta, "inflacion_mensual"]
+    return round(((1 + tramo / 100).prod() - 1) * 100, 1)
+
+
+def cambios_mismo_aviso(df: pd.DataFrame, base: str, comparar: str) -> pd.DataFrame:
+    """Qué pasó con el precio de los avisos publicados en ambos períodos, en la misma moneda.
+
+    Ojo: los avisos que siguen publicados meses después suelen ser los que no
+    se alquilaron, por lo que esta muestra NO representa al mercado
+    (sesgo de supervivencia).
+    """
+    a = df[df["periodo"] == base].set_index("id")
+    b = df[df["periodo"] == comparar].set_index("id")
+    ids = a.index.intersection(b.index)
+    a, b = a.loc[ids], b.loc[ids]
+    misma_moneda = a["currency"] == b["currency"]
+    cambio = (b["price_value"] / a["price_value"] - 1)[misma_moneda]
+    moneda = a.loc[misma_moneda, "currency"].map({"$": "Pesos", "USD": "Dólares"})
+    return pd.DataFrame({
+        "avisos": cambio.groupby(moneda).size(),
+        "% sin cambio de precio": (cambio == 0).groupby(moneda).mean() * 100,
+        "% suben": (cambio > 0).groupby(moneda).mean() * 100,
+        "% bajan": (cambio < 0).groupby(moneda).mean() * 100,
+    }).round(1)
+
+
+def pct_en_usd_composicion_fija(df: pd.DataFrame, base: str, comparar: str) -> dict:
+    """% de avisos publicados en USD en cada período, comparando cada barrio consigo mismo."""
+    datos = df.assign(en_usd=(df["currency"] == "USD").astype(float))
+    datos = datos[datos["periodo"].isin([base, comparar])]
+    tabla = datos.groupby(["barrio", "periodo"])["en_usd"].agg(["mean", "size"]).unstack("periodo")
+    tabla = tabla[(tabla["size"][[base, comparar]] >= MIN_PROPIEDADES).all(axis=1)]
+    pesos = tabla["size"][base]
+    return {p: round(float((tabla["mean"][p] * pesos).sum() / pesos.sum() * 100), 1) for p in [base, comparar]}
+
+
+def pct_en_usd_por_ambientes(df: pd.DataFrame) -> pd.DataFrame:
+    """% de avisos publicados en USD por tipología (1 a 4+ ambientes) y período."""
+    datos = df.dropna(subset=["ambientes"]).assign(
+        en_usd=lambda d: (d["currency"] == "USD") * 100.0,
+        tipologia=lambda d: d["ambientes"].clip(upper=4).astype(int).astype(str).replace({"4": "4+"}) + " amb.",
+    )
+    return datos.pivot_table(index="tipologia", columns="periodo", values="en_usd", aggfunc="mean").round(1)
