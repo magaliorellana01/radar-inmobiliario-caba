@@ -49,12 +49,16 @@ def resumen_por_barrio(datos: pd.DataFrame, min_deptos: int) -> pd.DataFrame:
 def grafico_barras(resumen: pd.DataFrame, columna: str, titulo_eje: str, formato: str) -> alt.Chart:
     """Barras horizontales ordenadas de mayor a menor, con tooltip por barrio."""
     alto = max(220, 24 * len(resumen))
-    return (
-        alt.Chart(resumen)
-        .mark_bar(color=AZUL, cornerRadiusEnd=4, height={"band": 0.7})
+    # Margen a la derecha para que entre el valor escrito al final de cada barra.
+    escala_x = alt.Scale(domain=[0, resumen[columna].max() * 1.12])
+    base = alt.Chart(resumen).encode(
+        x=alt.X(f"{columna}:Q", title=titulo_eje, scale=escala_x),
+        y=alt.Y("barrio:N", sort="-x", title=None, axis=alt.Axis(labelFontSize=12)),
+    )
+    valores = base.mark_text(align="left", dx=4, fontSize=11).encode(text=alt.Text(f"{columna}:Q", format=formato))
+    barras = (
+        base.mark_bar(color=AZUL, cornerRadiusEnd=4, height={"band": 0.7})
         .encode(
-            x=alt.X(f"{columna}:Q", title=titulo_eje),
-            y=alt.Y("barrio:N", sort="-x", title=None),
             tooltip=[
                 alt.Tooltip("barrio:N", title="Barrio"),
                 alt.Tooltip("mediana_m2:Q", title="Superficie mediana (m²)", format=".0f"),
@@ -63,8 +67,8 @@ def grafico_barras(resumen: pd.DataFrame, columna: str, titulo_eje: str, formato
                 alt.Tooltip("departamentos:Q", title="Departamentos"),
             ],
         )
-        .properties(height=alto)
     )
+    return (barras + valores).properties(height=alto)
 
 
 datos = cargar_datos()
@@ -107,7 +111,8 @@ c1, c2, c3, c4 = st.columns(4)
 c1.metric("Departamentos", f"{len(seleccion):,}".replace(",", "."))
 c2.metric("Alquiler mediano", formato_usd(seleccion["precio_usd"].median()))
 c3.metric("Superficie mediana", f"{seleccion['m2'].median():.0f} m²")
-c4.metric("Mediana por m²", f"USD {seleccion['precio_usd_m2'].median():.1f}".replace(".", ","))
+# La unidad va en la etiqueta para que el valor sea corto y no se corte en pantallas angostas.
+c4.metric("USD por m²", f"{seleccion['precio_usd_m2'].median():.1f}".replace(".", ","))
 
 resumen = resumen_por_barrio(seleccion, min_deptos)
 excluidos = seleccion["barrio"].nunique() - len(resumen)

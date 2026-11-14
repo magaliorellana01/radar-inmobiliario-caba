@@ -2,6 +2,14 @@
 
 Análisis de **29.038 departamentos en alquiler** publicados en Zonaprop en la Ciudad de Buenos Aires entre septiembre de 2024 y julio de 2025: cuánto cuesta el m² en cada barrio, cómo influyen la superficie y los ambientes, y cómo evolucionaron los precios frente a la inflación y el dólar.
 
+### 👉 [Probá el dashboard interactivo](https://radar-inmobiliario-caba.streamlit.app)
+
+Elegí tu presupuesto y la cantidad de ambientes, y mirá cuántos m² conseguís en cada barrio.
+
+[![Dashboard de Streamlit](reports/figures/dashboard.png)](https://radar-inmobiliario-caba.streamlit.app)
+
+<sub>Está publicado en el plan gratuito de Streamlit: si estuvo un tiempo sin visitas, puede aparecer en reposo. Hacé clic en *"Yes, get this app back up!"* y esperá unos segundos.</sub>
+
 ![Precio por m² por barrio](reports/figures/01_usd_m2_por_barrio.png)
 
 ## Principales hallazgos
@@ -98,6 +106,9 @@ Un mismo departamento puede aparecer en varios relevamientos. El dataset limpio 
 │   ├── raw/              # dataset original (no incluido en el repo)
 │   ├── processed/        # dataset limpio (se genera con src/cleaning.py)
 │   └── external/         # tipo de cambio e inflación
+├── app/
+│   ├── app.py            # dashboard de Streamlit
+│   └── data/             # datos livianos de la app (una fila por departamento)
 ├── notebooks/
 │   ├── 01_exploracion.ipynb   # exploración y decisiones de limpieza
 │   └── 02_analisis.ipynb      # análisis y conclusiones
@@ -106,6 +117,7 @@ Un mismo departamento puede aparecer en varios relevamientos. El dataset limpio 
     ├── cleaning.py       # pipeline de limpieza
     ├── analysis.py       # funciones de análisis
     ├── charts.py         # gráficos
+    ├── datos_app.py      # genera los datos del dashboard
     └── tipo_cambio.py    # descarga de dólar e inflación
 ```
 
@@ -124,13 +136,13 @@ pip install -r requirements.txt
 1. Descargar el dataset de [Kaggle](https://www.kaggle.com/datasets/martinbasualdo/property-prices-in-caba-zonaprop-data) (archivo de alquiler de departamentos) y ubicarlo en `data/raw/alquiler_departamentos_consolidado.pkl`.
 2. Generar el dataset limpio: `python -m src.cleaning`
 3. Abrir `notebooks/02_analisis.ipynb` y ejecutar todas las celdas.
+4. Dashboard local: `python -m src.datos_app` (regenera los datos de la app) y `python -m streamlit run app/app.py`.
 
 ## Próximos pasos
 
-- Dashboard interactivo en Streamlit para filtrar por barrio, ambientes y presupuesto.
 - Relevamientos periódicos propios, para seguir la evolución mes a mes.
 - Extraer amenities, cochera y antigüedad de las descripciones, para controlar por esas variables.
 
 ## Tecnologías
 
-Python · pandas · NumPy · Matplotlib · Jupyter
+Python · pandas · NumPy · Matplotlib · Jupyter · Streamlit · Altair
