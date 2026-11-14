@@ -2,7 +2,7 @@
 
 Análisis de **29.038 departamentos en alquiler** publicados en Zonaprop en la Ciudad de Buenos Aires entre septiembre de 2024 y julio de 2025: cuánto cuesta el m² en cada barrio, cómo influyen la superficie y los ambientes, y cómo evolucionaron los precios frente a la inflación y el dólar.
 
-### 👉 [Probá el dashboard interactivo](https://radar-inmobiliario-caba.streamlit.app)
+###[Probá el dashboard interactivo](https://radar-inmobiliario-caba.streamlit.app)
 
 Elegí tu presupuesto y la cantidad de ambientes, y mirá cuántos m² conseguís en cada barrio.
 
