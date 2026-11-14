@@ -97,3 +97,52 @@ def parsear_location(df: pd.DataFrame) -> pd.DataFrame:
         raise ValueError(f"Barrios sin mapear a uno oficial: {sorted(no_oficiales)}")
 
     return df
+
+
+def parsear_precio(df: pd.DataFrame) -> pd.DataFrame:
+    """Separa `Price` en `currency` ("USD" o "$") y `price_value` (numérico).
+
+    Ejemplos: "USD 1.100" -> ("USD", 1100.0); "$ 470.000" -> ("$", 470000.0).
+    "Consultar precio" queda con ambos valores nulos.
+    """
+    df = df.copy()
+    df["currency"] = df["Price"].str.extract(r"(USD|\$)")[0]
+    df["price_value"] = pd.to_numeric(
+        df["Price"]
+        .str.replace(".", "", regex=False)
+        .str.replace("USD", "", regex=False)
+        .str.replace("$", "", regex=False),
+        errors="coerce",
+    )
+    return df
+
+
+def convertir_a_usd(df: pd.DataFrame, tipo_cambio: pd.DataFrame, dolar: str = "mep") -> pd.DataFrame:
+    """Agrega `tc` (pesos por dólar) y `precio_usd` usando la cotización del día del scraping.
+
+    Se usa el dólar MEP por defecto: en 2024 la brecha con el oficial era de
+    ~26%, y los alquileres en dólares se pagan con dólares de mercado, no al
+    oficial. Si una fecha no tuviera cotización se toma la última disponible.
+
+    `tipo_cambio` es la tabla de `data/external/tipo_cambio.csv`
+    (columnas: fecha, oficial, mep, blue).
+    """
+    df = df.copy()
+    tc = tipo_cambio[["fecha", dolar]].rename(columns={dolar: "tc"})
+    tc["fecha"] = pd.to_datetime(tc["fecha"])
+
+    df["fecha_scraping"] = df["scrap_date"].dt.normalize()
+    orden_original = df.index
+    df = pd.merge_asof(
+        df.reset_index().sort_values("fecha_scraping"),
+        tc.sort_values("fecha"),
+        left_on="fecha_scraping",
+        right_on="fecha",
+        direction="backward",
+    ).drop(columns="fecha").set_index("index").loc[orden_original]
+    df.index.name = None
+
+    df["precio_usd"] = df["price_value"].where(
+        df["currency"] == "USD", df["price_value"] / df["tc"]
+    ).round(1)
+    return df
