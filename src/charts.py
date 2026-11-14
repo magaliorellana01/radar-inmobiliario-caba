@@ -218,6 +218,65 @@ def m2_con_presupuesto(resumen: pd.DataFrame, minimo: float, maximo: float) -> p
     return fig
 
 
+GRIS_REFERENCIA = "#a3a29c"
+
+
+def variaciones_vs_referencias(variaciones: pd.Series, referencias: list[str], titulo: str, nota: str) -> plt.Figure:
+    """Barras horizontales con variaciones %; las `referencias` (inflación, dólar) van en gris.
+
+    `variaciones` es una Serie {etiqueta: variación %} en el orden en que se muestran.
+    """
+    aplicar_estilo()
+    datos = variaciones.iloc[::-1]
+    fig, ax = plt.subplots(figsize=(8, 3.8))
+    colores = [GRIS_REFERENCIA if e in referencias else AZUL for e in datos.index]
+    ax.barh(datos.index, datos.values, color=colores, height=0.6)
+    for i, v in enumerate(datos.values):
+        ax.text(v + 0.3, i, f"+{v:.1f}%".replace(".", ","), va="center", fontsize=10, color=TEXTO, fontweight="bold")
+
+    ax.set_xlim(0, datos.max() * 1.18)
+    ax.xaxis.set_major_locator(plt.MultipleLocator(5))
+    ax.xaxis.set_major_formatter(lambda v, _: f"{v:.0f}%")
+    ax.grid(axis="x", color=GRILLA, linewidth=0.8)
+    ax.set_axisbelow(True)
+    ax.tick_params(axis="y", length=0)
+    ax.set_title(titulo)
+    agregar_nota(ax, nota)
+    return fig
+
+
+def pct_usd_por_tipologia(tabla: pd.DataFrame, base: str, comparar: str, etiquetas: dict[str, str]) -> plt.Figure:
+    """Gráfico de pesas: % de avisos publicados en USD por tipología en dos períodos.
+
+    `tabla` es la salida de `analysis.pct_en_usd_por_ambientes`.
+    """
+    aplicar_estilo()
+    datos = tabla[[base, comparar]].iloc[::-1]
+    color_base, color_comparar = "#1c5cab", "#86b6ef"
+    fig, ax = plt.subplots(figsize=(8, 4))
+    y = range(len(datos))
+    ax.hlines(y, datos[comparar], datos[base], color=GRILLA, linewidth=3, zorder=1)
+    ax.scatter(datos[base], y, s=80, color=color_base, zorder=3, label=etiquetas[base], edgecolors=FONDO, linewidths=2)
+    ax.scatter(datos[comparar], y, s=80, color=color_comparar, zorder=2, label=etiquetas[comparar],
+               edgecolors=FONDO, linewidths=2)
+    for i, (a, b) in enumerate(zip(datos[base], datos[comparar])):
+        ax.text(a + 1.5, i, f"{a:.0f}%", va="center", fontsize=9, color=TEXTO)
+        ax.text(b - 1.5, i, f"{b:.0f}%", va="center", ha="right", fontsize=9, color=TEXTO_SECUNDARIO)
+
+    ax.set_yticks(list(y), datos.index)
+    ax.set_xlim(0, 100)
+    ax.xaxis.set_major_formatter(lambda v, _: f"{v:.0f}%")
+    ax.set_xlabel("Avisos publicados en dólares")
+    ax.grid(axis="x", color=GRILLA, linewidth=0.8)
+    ax.set_axisbelow(True)
+    ax.tick_params(axis="y", length=0)
+    ax.legend(loc="lower right", frameon=False, ncols=2, bbox_to_anchor=(1, 1.0), fontsize=9)
+    ax.set_title("Menos avisos en dólares en todas las tipologías", pad=24)
+    agregar_nota(ax, "Porcentaje de avisos de alquiler publicados en USD, por cantidad de ambientes.\n"
+                     "Una publicación por departamento y período. Fuente: avisos de alquiler en CABA.")
+    return fig
+
+
 def agregar_nota(ax: plt.Axes, texto: str) -> None:
     """Nota metodológica debajo del eje x, alineada con el inicio del eje."""
     ax.annotate(texto, xy=(0, 0), xycoords="axes fraction", xytext=(0, -42),
