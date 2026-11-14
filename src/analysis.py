@@ -1,5 +1,6 @@
 """Funciones de análisis sobre el dataset limpio de alquileres."""
 
+import numpy as np
 import pandas as pd
 
 MIN_PROPIEDADES = 30
@@ -74,6 +75,51 @@ def resumen_por_ambientes(df: pd.DataFrame) -> pd.DataFrame:
     )
     resumen["aumento_vs_anterior_%"] = resumen["mediana_precio_usd"].pct_change() * 100
     return resumen.round(1)
+
+
+BANDAS_M2 = [15, 30, 40, 50, 70, 100, 150, 1_000]
+
+
+def usd_m2_por_superficie(df: pd.DataFrame, bandas: list[int] = BANDAS_M2) -> pd.DataFrame:
+    """Mediana de USD/m² por rango de superficie."""
+    rango = pd.cut(df["m2"].astype(float), bandas, include_lowest=True)
+    etiquetas = {i: (f"{i.left:.0f}+" if i.right == bandas[-1] else f"{i.left:.0f}-{i.right:.0f}") for i in rango.cat.categories}
+    resumen = df.groupby(rango, observed=True).agg(
+        propiedades=("id", "size"),
+        mediana_usd_m2=("precio_usd_m2", "median"),
+        mediana_precio_usd=("precio_usd", "median"),
+    )
+    resumen.index = [etiquetas[i] + " m²" for i in resumen.index]
+    resumen.index.name = "superficie"
+    return resumen.round(1)
+
+
+def elasticidad_precio_superficie(df: pd.DataFrame, por_barrio: bool = False) -> float:
+    """Pendiente de log(precio) sobre log(m²): % que sube el precio si la superficie sube 1%.
+
+    Con `por_barrio=True` se resta la media de cada barrio antes de ajustar,
+    así la estimación compara departamentos dentro de un mismo barrio.
+    """
+    log_precio = np.log(df["precio_usd"])
+    log_m2 = np.log(df["m2"].astype(float))
+    if por_barrio:
+        log_precio = log_precio - log_precio.groupby(df["barrio"]).transform("mean")
+        log_m2 = log_m2 - log_m2.groupby(df["barrio"]).transform("mean")
+    return float(np.polyfit(log_m2, log_precio, 1)[0])
+
+
+def m2_por_presupuesto(
+    df: pd.DataFrame, minimo: float = 450, maximo: float = 550, min_propiedades: int = MIN_PROPIEDADES
+) -> pd.DataFrame:
+    """Mediana de m² que se consigue en cada barrio con un alquiler entre `minimo` y `maximo` USD."""
+    en_presupuesto = df[df["precio_usd"].between(minimo, maximo)]
+    resumen = (
+        en_presupuesto.groupby("barrio")
+        .agg(propiedades=("id", "size"), mediana_m2=("m2", "median"), mediana_ambientes=("ambientes", "median"))
+        .query("propiedades >= @min_propiedades")
+        .sort_values("mediana_m2", ascending=False)
+    )
+    return resumen.astype({"mediana_m2": float}).round(1)
 
 
 def usd_m2_por_ambientes_en_barrio(
