@@ -51,7 +51,7 @@ Dentro de un mismo barrio el precio es proporcional a la superficie: la elastici
 
 ## Datos
 
-- **Fuente:** avisos de alquiler de departamentos en CABA publicados en [Zonaprop](https://www.zonaprop.com.ar), obtenidos por scraping. <!-- COMPLETAR: link al dataset original -->
+- **Fuente:** avisos de alquiler de departamentos en CABA publicados en [Zonaprop](https://www.zonaprop.com.ar), obtenidos por scraping. Dataset público en Kaggle: [Property prices in CABA - Zonaprop data](https://www.kaggle.com/datasets/martinbasualdo/property-prices-in-caba-zonaprop-data) (autor: martinbasualdo).
 - **Período:** 5 relevamientos (23, 24 y 29 de septiembre de 2024, 9 de marzo de 2025 y 12 de julio de 2025).
 - **Datos externos:** cotización del dólar y la inflación mensual del INDEC, ambas obtenidas de [ArgentinaDatos](https://argentinadatos.com).
 
@@ -121,7 +121,7 @@ python -m venv .venv
 pip install -r requirements.txt
 ```
 
-1. Ubicar el dataset original en `data/raw/alquiler_departamentos_consolidado.pkl`.
+1. Descargar el dataset de [Kaggle](https://www.kaggle.com/datasets/martinbasualdo/property-prices-in-caba-zonaprop-data) (archivo de alquiler de departamentos) y ubicarlo en `data/raw/alquiler_departamentos_consolidado.pkl`.
 2. Generar el dataset limpio: `python -m src.cleaning`
 3. Abrir `notebooks/02_analisis.ipynb` y ejecutar todas las celdas.
 
